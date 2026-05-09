@@ -1,5 +1,5 @@
 default:
-    ai_provider: ollama  # Options: openai, ollama, gemini, claude, groq, llamacpp, custom, copilot
+    ai_provider: ollama  # Options: openai, bedrock, ollama, gemini, claude, groq, llamacpp, custom, copilot
     ai_model: llama3  # Model name for ollama or gemini, e.g., "llama3", "gemini-1.5-flash"
     # For llamacpp, set endpoint via LLAMACPP_ENDPOINT env var (default: http://localhost:8080/completion)
     # Example: export LLAMACPP_ENDPOINT="http://localhost:8080/completion"
@@ -164,6 +164,31 @@ default:
                         max_tokens: 4096
                         recommended_for: ["general", "fast", "budget"]
                         cost_tier: "standard"
+            bedrock:
+                name: "AWS Bedrock"
+                description: "AWS Bedrock OpenAI-compatible endpoint"
+                type: "cloud"
+                base_url: "https://bedrock-mantle.eu-north-1.api.aws/v1"
+                available: true
+                supports_streaming: true
+                supports_tools: true
+                requires_api_key: true
+                env_var: "AWS_BEDROCK_API_KEY"
+                models:
+                    anthropic.claude-haiku-4-5:
+                        name: "Claude Haiku 4.5 (Bedrock)"
+                        description: "Anthropic Claude Haiku 4.5 via AWS Bedrock"
+                        type: "chat"
+                        context_window: 200000
+                        recommended_for: ["fast", "general", "nixos"]
+                        cost_tier: "standard"
+                    openai.gpt-oss-120b:
+                        name: "GPT OSS 120B (Bedrock)"
+                        description: "OpenAI GPT OSS 120B via AWS Bedrock"
+                        type: "chat"
+                        context_window: 131072
+                        cost_tier: "premium"
+                        default: true
             copilot:
                 name: "GitHub Copilot"
                 description: "GitHub Copilot's AI models with OpenAI compatibility"
@@ -328,6 +353,7 @@ default:
                 ollama: "llama3"
                 gemini: "gemini-2.5-flash-preview-05-20"
                 openai: "gpt-3.5-turbo"
+                bedrock: "us.anthropic.claude-haiku-4-5-20251001-v1:0"
                 copilot: "gpt-4"
                 claude: "claude-sonnet-4-20250514"
                 groq: "llama-3.3-70b-versatile"
@@ -402,6 +428,7 @@ default:
         llamacpp: 120       # LlamaCpp server timeout (often slower due to CPU inference)
         gemini: 30          # Google Gemini API timeout
         openai: 30          # OpenAI API timeout
+        bedrock: 30         # AWS Bedrock API timeout
         claude: 30          # Anthropic Claude API timeout
         groq: 30            # Groq API timeout (high-speed inference)
         custom: 60          # Custom API timeout

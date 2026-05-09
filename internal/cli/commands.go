@@ -3166,6 +3166,8 @@ func handlePackageRepoCommand(cmd *cobra.Command, args []string) {
 	outputPath, _ := cmd.Flags().GetString("output")
 	packageName, _ := cmd.Flags().GetString("name")
 	analyzeOnly, _ := cmd.Flags().GetBool("analyze-only")
+	providerFlag, _ := cmd.Flags().GetString("provider")
+	modelFlag, _ := cmd.Flags().GetString("model")
 
 	// Determine repository URL or local path
 	var repoURL string
@@ -3185,6 +3187,31 @@ func handlePackageRepoCommand(cmd *cobra.Command, args []string) {
 	if err != nil {
 		fmt.Fprintln(os.Stderr, utils.FormatError("Failed to load config: "+err.Error()))
 		return
+	}
+
+	// Ensure providers are populated (embedded fallback) before overrides
+	cfg, err = EnsureConfigHasProviders(cfg)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, utils.FormatError("Failed to load provider defaults: "+err.Error()))
+		return
+	}
+
+	// Apply provider/model overrides from flags
+	if providerFlag != "" {
+		cfg.AIProvider = providerFlag
+		cfg.AIModels.SelectionPreferences.DefaultProvider = providerFlag
+	}
+	if modelFlag != "" {
+		providerForModel := providerFlag
+		if providerForModel == "" {
+			providerForModel = cfg.AIProvider
+		}
+		if providerForModel != "" {
+			if cfg.AIModels.SelectionPreferences.DefaultModels == nil {
+				cfg.AIModels.SelectionPreferences.DefaultModels = make(map[string]string)
+			}
+			cfg.AIModels.SelectionPreferences.DefaultModels[providerForModel] = modelFlag
+		}
 	}
 
 	// Initialize AI provider (using the legacy interface for packaging service)

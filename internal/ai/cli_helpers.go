@@ -165,6 +165,8 @@ func getProviderName(provider Provider) string {
 			return "claude"
 		case *GroqLegacyProvider:
 			return "groq"
+		case *BedrockClient:
+			return "bedrock"
 		}
 	}
 	// For all other cases, return unknown

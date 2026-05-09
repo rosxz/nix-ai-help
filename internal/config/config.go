@@ -14,7 +14,7 @@ import (
 // EmbeddedDefaultConfig contains the default configuration YAML that gets compiled into the binary.
 // This eliminates the need for external config files when installing via nix build.
 const EmbeddedDefaultConfig = `default:
-    ai_provider: ollama  # Options: openai, ollama, gemini, custom
+	ai_provider: ollama  # Options: openai, bedrock, ollama, gemini, custom
     ai_model: llama3
     # Custom AI provider configuration (used if ai_provider: custom)
     custom_ai:
@@ -43,6 +43,32 @@ const EmbeddedDefaultConfig = `default:
                         max_tokens: 4096
                         recommended_for: ["nixos", "general"]
                         default: true
+			bedrock:
+				name: "AWS Bedrock"
+				description: "AWS Bedrock OpenAI-compatible endpoint"
+				type: "cloud"
+				base_url: "https://bedrock-mantle.eu-north-1.api.aws/v1"
+				available: true
+				supports_streaming: true
+				supports_tools: true
+				requires_api_key: true
+				env_var: "AWS_BEDROCK_API_KEY"
+				models:
+					us.anthropic.claude-haiku-4-5-20251001-v1:0:
+						name: "Claude Haiku 4.5 (Bedrock)"
+						description: "Anthropic Claude Haiku 4.5 via AWS Bedrock"
+						type: "chat"
+						context_window: 200000
+						max_tokens: 8192
+						recommended_for: ["fast", "general"]
+						default: true
+					openai.gpt-oss-120b-1:0:
+						name: "GPT OSS 120B (Bedrock)"
+						description: "OpenAI GPT OSS 120B via AWS Bedrock"
+						type: "chat"
+						context_window: 128000
+						max_tokens: 8192
+						recommended_for: ["analysis", "complex"]
         selection_preferences:
             default_provider: "ollama"
             default_models:
@@ -85,13 +111,14 @@ const EmbeddedDefaultConfig = `default:
     commands:
         timeout: 30
         retries: 3
-    ai_timeouts:
-        ollama: 60
-        llamacpp: 120
-        gemini: 30
-        openai: 30
-        custom: 60
-        default: 60
+	ai_timeouts:
+		ollama: 60
+		llamacpp: 120
+		gemini: 30
+		openai: 30
+		bedrock: 30
+		custom: 60
+		default: 60
     devenv:
         default_directory: "."
         auto_init_git: true
@@ -218,11 +245,11 @@ type NixOSContext struct {
 	HardwareConfigNix string `yaml:"hardware_config_nix" json:"hardware_config_nix"`
 
 	// System Information (newly added)
-	HardwareInfo     *HardwareInfo     `yaml:"hardware_info,omitempty" json:"hardware_info,omitempty"`
-	NetworkInfo      *NetworkInfo      `yaml:"network_info,omitempty" json:"network_info,omitempty"`
-	SecurityInfo     *SecurityInfo     `yaml:"security_info,omitempty" json:"security_info,omitempty"`
-	PerformanceInfo  *PerformanceInfo  `yaml:"performance_info,omitempty" json:"performance_info,omitempty"`
-	UserEnvironment  *UserEnvironment  `yaml:"user_environment,omitempty" json:"user_environment,omitempty"`
+	HardwareInfo    *HardwareInfo    `yaml:"hardware_info,omitempty" json:"hardware_info,omitempty"`
+	NetworkInfo     *NetworkInfo     `yaml:"network_info,omitempty" json:"network_info,omitempty"`
+	SecurityInfo    *SecurityInfo    `yaml:"security_info,omitempty" json:"security_info,omitempty"`
+	PerformanceInfo *PerformanceInfo `yaml:"performance_info,omitempty" json:"performance_info,omitempty"`
+	UserEnvironment *UserEnvironment `yaml:"user_environment,omitempty" json:"user_environment,omitempty"`
 
 	// Cache Information
 	LastDetected    time.Time `yaml:"last_detected" json:"last_detected"`
@@ -265,6 +292,7 @@ type AITimeoutsConfig struct {
 	LlamaCpp int `yaml:"llamacpp" json:"llamacpp"`
 	Gemini   int `yaml:"gemini" json:"gemini"`
 	OpenAI   int `yaml:"openai" json:"openai"`
+	Bedrock  int `yaml:"bedrock" json:"bedrock"`
 	Custom   int `yaml:"custom" json:"custom"`
 	Default  int `yaml:"default" json:"default"`
 }
@@ -346,19 +374,19 @@ type PluginMarketplaceConfig struct {
 
 // ExecutionConfig represents command execution configuration
 type ExecutionConfig struct {
-	Enabled                      bool                              `yaml:"enabled" json:"enabled"`
-	ConfirmationRequired         bool                              `yaml:"confirmation_required" json:"confirmation_required"`
-	DryRunDefault               bool                              `yaml:"dry_run_default" json:"dry_run_default"`
-	MaxExecutionTime            time.Duration                     `yaml:"max_execution_time" json:"max_execution_time"`
-	DefaultWorkingDir           string                            `yaml:"default_working_dir" json:"default_working_dir"`
-	AllowedCommands             []string                          `yaml:"allowed_commands" json:"allowed_commands"`
-	ForbiddenCommands           []string                          `yaml:"forbidden_commands" json:"forbidden_commands"`
-	SudoCommands                []string                          `yaml:"sudo_commands" json:"sudo_commands"`
-	AllowedDirectories          []string                          `yaml:"allowed_directories" json:"allowed_directories"`
-	ForbiddenPaths              []string                          `yaml:"forbidden_paths" json:"forbidden_paths"`
-	AllowedEnvironmentVariables []string                          `yaml:"allowed_environment_variables" json:"allowed_environment_variables"`
+	Enabled                     bool                               `yaml:"enabled" json:"enabled"`
+	ConfirmationRequired        bool                               `yaml:"confirmation_required" json:"confirmation_required"`
+	DryRunDefault               bool                               `yaml:"dry_run_default" json:"dry_run_default"`
+	MaxExecutionTime            time.Duration                      `yaml:"max_execution_time" json:"max_execution_time"`
+	DefaultWorkingDir           string                             `yaml:"default_working_dir" json:"default_working_dir"`
+	AllowedCommands             []string                           `yaml:"allowed_commands" json:"allowed_commands"`
+	ForbiddenCommands           []string                           `yaml:"forbidden_commands" json:"forbidden_commands"`
+	SudoCommands                []string                           `yaml:"sudo_commands" json:"sudo_commands"`
+	AllowedDirectories          []string                           `yaml:"allowed_directories" json:"allowed_directories"`
+	ForbiddenPaths              []string                           `yaml:"forbidden_paths" json:"forbidden_paths"`
+	AllowedEnvironmentVariables []string                           `yaml:"allowed_environment_variables" json:"allowed_environment_variables"`
 	Categories                  map[string]ExecutionCategoryConfig `yaml:"categories" json:"categories"`
-	Security                    ExecutionSecurityConfig           `yaml:"security" json:"security"`
+	Security                    ExecutionSecurityConfig            `yaml:"security" json:"security"`
 }
 
 // ExecutionCategoryConfig represents configuration for a command category
@@ -374,12 +402,12 @@ type ExecutionCategoryConfig struct {
 
 // ExecutionSecurityConfig represents security configuration for command execution
 type ExecutionSecurityConfig struct {
-	AuditLogging         bool          `yaml:"audit_logging" json:"audit_logging"`
-	AuditLogPath         string        `yaml:"audit_log_path" json:"audit_log_path"`
-	SessionTimeout       time.Duration `yaml:"session_timeout" json:"session_timeout"`
-	PasswordTimeout      time.Duration `yaml:"password_timeout" json:"password_timeout"`
-	MaxConcurrentCommands int          `yaml:"max_concurrent_commands" json:"max_concurrent_commands"`
-	RequireSudoFor       []string      `yaml:"require_sudo_for" json:"require_sudo_for"`
+	AuditLogging          bool          `yaml:"audit_logging" json:"audit_logging"`
+	AuditLogPath          string        `yaml:"audit_log_path" json:"audit_log_path"`
+	SessionTimeout        time.Duration `yaml:"session_timeout" json:"session_timeout"`
+	PasswordTimeout       time.Duration `yaml:"password_timeout" json:"password_timeout"`
+	MaxConcurrentCommands int           `yaml:"max_concurrent_commands" json:"max_concurrent_commands"`
+	RequireSudoFor        []string      `yaml:"require_sudo_for" json:"require_sudo_for"`
 }
 
 // PluginSecurityConfig represents security configuration for plugins
@@ -511,6 +539,8 @@ func (c *UserConfig) GetAITimeout(provider string) time.Duration {
 		timeoutSeconds = c.AITimeouts.Gemini
 	case "openai":
 		timeoutSeconds = c.AITimeouts.OpenAI
+	case "bedrock":
+		timeoutSeconds = c.AITimeouts.Bedrock
 	case "custom":
 		timeoutSeconds = c.AITimeouts.Custom
 	default:
@@ -541,6 +571,8 @@ func (c *YAMLConfig) GetAITimeout(provider string) time.Duration {
 		timeoutSeconds = c.AITimeouts.Gemini
 	case "openai":
 		timeoutSeconds = c.AITimeouts.OpenAI
+	case "bedrock":
+		timeoutSeconds = c.AITimeouts.Bedrock
 	case "custom":
 		timeoutSeconds = c.AITimeouts.Custom
 	default:
@@ -635,6 +667,38 @@ func DefaultUserConfig() *UserConfig {
 						},
 					},
 				},
+				"bedrock": {
+					Name:              "AWS Bedrock",
+					Description:       "AWS Bedrock OpenAI-compatible endpoint",
+					Type:              "cloud",
+					BaseURL:           "https://bedrock-mantle.eu-north-1.api.aws/v1",
+					Available:         true,
+					SupportsStreaming: true,
+					SupportsTools:     true,
+					RequiresAPIKey:    true,
+					EnvVar:            "AWS_BEDROCK_API_KEY",
+					Models: map[string]AIModelConfig{
+						"us.anthropic.claude-haiku-4-5-20251001-v1:0": {
+							Name:           "Claude Haiku 4.5 (Bedrock)",
+							Description:    "Anthropic Claude Haiku 4.5 via AWS Bedrock",
+							Type:           "chat",
+							ContextWindow:  200000,
+							MaxTokens:      8192,
+							RecommendedFor: []string{"fast", "general", "nixos"},
+							CostTier:       "standard",
+							Default:        true,
+						},
+						"openai.gpt-oss-120b-1:0": {
+							Name:           "GPT OSS 120B (Bedrock)",
+							Description:    "OpenAI GPT OSS 120B via AWS Bedrock",
+							Type:           "chat",
+							ContextWindow:  128000,
+							MaxTokens:      8192,
+							RecommendedFor: []string{"analysis", "complex", "coding"},
+							CostTier:       "premium",
+						},
+					},
+				},
 				"copilot": {
 					Name:              "GitHub Copilot",
 					Description:       "GitHub Copilot's AI models with OpenAI compatibility",
@@ -674,6 +738,7 @@ func DefaultUserConfig() *UserConfig {
 					"ollama":  "llama3",
 					"gemini":  "gemini-1.5-flash",
 					"openai":  "gpt-3.5-turbo",
+					"bedrock": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
 					"copilot": "gpt-4",
 				},
 				TaskModels: map[string]TaskModelPreferences{
@@ -740,6 +805,7 @@ func DefaultUserConfig() *UserConfig {
 			LlamaCpp: 120,
 			Gemini:   30,
 			OpenAI:   30,
+			Bedrock:  30,
 			Custom:   60,
 			Default:  60,
 		},
