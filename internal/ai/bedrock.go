@@ -9,7 +9,10 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
+
+	"nix-ai-help/pkg/logger"
 )
 
 // BedrockClient implements the AIProvider interface for AWS Bedrock OpenAI-compatible endpoints.
@@ -18,10 +21,29 @@ type BedrockClient struct {
 	APIURL     string
 	Model      string
 	HTTPClient *http.Client
+	Logger     *logger.Logger
+	CostConfig BedrockCostConfig
+	Totals     BedrockCostTotals
+	mu         sync.Mutex
+}
+
+// BedrockCostConfig defines per-1M token pricing for Bedrock models.
+type BedrockCostConfig struct {
+	PromptPer1M       float64
+	CompletionPer1M   float64
+	CachedPromptPer1M float64
+}
+
+// BedrockCostTotals tracks aggregate token usage and cost.
+type BedrockCostTotals struct {
+	PromptTokens     int
+	CachedTokens     int
+	CompletionTokens int
+	TotalCostUSD     float64
 }
 
 // NewBedrockClient creates a new Bedrock client with a base URL and model.
-func NewBedrockClient(apiKey, baseURL, model string) *BedrockClient {
+func NewBedrockClient(apiKey, baseURL, model string, costConfig BedrockCostConfig, log *logger.Logger) *BedrockClient {
 	if baseURL == "" {
 		baseURL = "https://bedrock-mantle.eu-north-1.api.aws/v1"
 	}
@@ -30,12 +52,43 @@ func NewBedrockClient(apiKey, baseURL, model string) *BedrockClient {
 		model = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
 	}
 
+	if log == nil {
+		log = logger.NewLogger()
+	}
+	if costConfig.CachedPromptPer1M == 0 {
+		costConfig.CachedPromptPer1M = costConfig.PromptPer1M
+	}
+
 	return &BedrockClient{
 		APIKey:     apiKey,
 		APIURL:     buildBedrockAPIURL(baseURL),
 		Model:      model,
 		HTTPClient: &http.Client{Timeout: 30 * time.Second},
+		Logger:     log,
+		CostConfig: costConfig,
 	}
+}
+
+type bedrockResponse struct {
+	Choices []Choice      `json:"choices"`
+	Usage   *bedrockUsage `json:"usage,omitempty"`
+	Error   *bedrockError `json:"error,omitempty"`
+}
+
+type bedrockError struct {
+	Message string `json:"message"`
+	Type    string `json:"type"`
+}
+
+type bedrockUsage struct {
+	PromptTokens     int                      `json:"prompt_tokens"`
+	CompletionTokens int                      `json:"completion_tokens"`
+	TotalTokens      int                      `json:"total_tokens"`
+	PromptDetails    *bedrockPromptTokenUsage `json:"prompt_tokens_details,omitempty"`
+}
+
+type bedrockPromptTokenUsage struct {
+	CachedTokens int `json:"cached_tokens,omitempty"`
 }
 
 func buildBedrockAPIURL(baseURL string) string {
@@ -84,9 +137,13 @@ func (client *BedrockClient) GenerateResponseFromMessagesContext(ctx context.Con
 		return "", fmt.Errorf("bedrock returned status %d: %s", resp.StatusCode, bodyText)
 	}
 
-	var response Response
+	var response bedrockResponse
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
 		return "", fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	if response.Error != nil {
+		return "", fmt.Errorf("bedrock error: %s", response.Error.Message)
 	}
 
 	if len(response.Choices) == 0 {
@@ -94,12 +151,55 @@ func (client *BedrockClient) GenerateResponseFromMessagesContext(ctx context.Con
 	}
 
 	if response.Choices[0].Message.Content != "" {
+		client.recordUsage(response.Usage)
 		return response.Choices[0].Message.Content, nil
 	}
 	if response.Choices[0].Text != "" {
+		client.recordUsage(response.Usage)
 		return response.Choices[0].Text, nil
 	}
 	return "", fmt.Errorf("no content in bedrock response")
+}
+
+func (client *BedrockClient) recordUsage(usage *bedrockUsage) {
+	if usage == nil {
+		return
+	}
+
+	cachedTokens := 0
+	if usage.PromptDetails != nil {
+		cachedTokens = usage.PromptDetails.CachedTokens
+	}
+
+	promptTokens := usage.PromptTokens
+	if cachedTokens > promptTokens {
+		cachedTokens = promptTokens
+	}
+
+	effectivePrompt := promptTokens - cachedTokens
+	completionTokens := usage.CompletionTokens
+
+	cost := (float64(effectivePrompt)/1000000.0)*client.CostConfig.PromptPer1M +
+		(float64(cachedTokens)/1000000.0)*client.CostConfig.CachedPromptPer1M +
+		(float64(completionTokens)/1000000.0)*client.CostConfig.CompletionPer1M
+
+	client.mu.Lock()
+	client.Totals.PromptTokens += promptTokens
+	client.Totals.CachedTokens += cachedTokens
+	client.Totals.CompletionTokens += completionTokens
+	client.Totals.TotalCostUSD += cost
+	client.mu.Unlock()
+
+	if client.Logger != nil {
+		client.Logger.Info(fmt.Sprintf("Bedrock usage model=%s prompt=%d cached=%d completion=%d cost=$%.6f", client.Model, promptTokens, cachedTokens, completionTokens, cost))
+	}
+}
+
+// GetCostTotals returns a snapshot of aggregated usage and costs.
+func (client *BedrockClient) GetCostTotals() BedrockCostTotals {
+	client.mu.Lock()
+	defer client.mu.Unlock()
+	return client.Totals
 }
 
 // Query implements the AIProvider interface (legacy signature for compatibility).

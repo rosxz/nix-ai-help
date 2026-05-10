@@ -15,34 +15,34 @@ import (
 // This eliminates the need for external config files when installing via nix build.
 const EmbeddedDefaultConfig = `default:
 	ai_provider: ollama  # Options: openai, bedrock, ollama, gemini, custom
-    ai_model: llama3
-    # Custom AI provider configuration (used if ai_provider: custom)
-    custom_ai:
-        base_url: http://localhost:8080/api/generate  # HTTP API endpoint URL
-        headers:  # Optional custom headers (e.g., for authentication)
-            Authorization: "Bearer your-api-key-here"
-            Content-Type: "application/json"  # Set automatically if not provided
-    # Basic AI models configuration (subset for embedded config)
-    ai_models:
-        providers:
-            ollama:
-                name: "Ollama"
-                description: "Local AI model provider"
-                type: "local"
-                base_url: "http://localhost:11434"
-                available: true
-                supports_streaming: true
-                supports_tools: true
-                requires_api_key: false
-                models:
-                    llama3:
-                        name: "Llama 3"
-                        description: "Meta's Llama 3 model"
-                        type: "chat"
-                        context_window: 8192
-                        max_tokens: 4096
-                        recommended_for: ["nixos", "general"]
-                        default: true
+	ai_model: llama3
+	# Custom AI provider configuration (used if ai_provider: custom)
+	custom_ai:
+		base_url: http://localhost:8080/api/generate  # HTTP API endpoint URL
+		headers:  # Optional custom headers (e.g., for authentication)
+			Authorization: "Bearer your-api-key-here"
+			Content-Type: "application/json"  # Set automatically if not provided
+	# Basic AI models configuration (subset for embedded config)
+	ai_models:
+		providers:
+			ollama:
+				name: "Ollama"
+				description: "Local AI model provider"
+				type: "local"
+				base_url: "http://localhost:11434"
+				available: true
+				supports_streaming: true
+				supports_tools: true
+				requires_api_key: false
+				models:
+					llama3:
+						name: "Llama 3"
+						description: "Meta's Llama 3 model"
+						type: "chat"
+						context_window: 8192
+						max_tokens: 4096
+						recommended_for: ["nixos", "general"]
+						default: true
 			bedrock:
 				name: "AWS Bedrock"
 				description: "AWS Bedrock OpenAI-compatible endpoint"
@@ -54,63 +54,70 @@ const EmbeddedDefaultConfig = `default:
 				requires_api_key: true
 				env_var: "AWS_BEDROCK_API_KEY"
 				models:
-					us.anthropic.claude-haiku-4-5-20251001-v1:0:
+					anthropic.claude-haiku-4-5:
 						name: "Claude Haiku 4.5 (Bedrock)"
 						description: "Anthropic Claude Haiku 4.5 via AWS Bedrock"
 						type: "chat"
 						context_window: 200000
 						max_tokens: 8192
 						recommended_for: ["fast", "general"]
+						prompt_cost_per_1m: 0.5
+						completion_cost_per_1m: 1.0
+						cached_prompt_cost_per_1m: 0.1
 						default: true
-					openai.gpt-oss-120b-1:0:
+					openai.gpt-oss-120b:
 						name: "GPT OSS 120B (Bedrock)"
 						description: "OpenAI GPT OSS 120B via AWS Bedrock"
 						type: "chat"
 						context_window: 128000
 						max_tokens: 8192
 						recommended_for: ["analysis", "complex"]
-        selection_preferences:
-            default_provider: "ollama"
-            default_models:
-                ollama: "llama3"
-            task_models:
-                nixos_config:
-                    primary: ["ollama:llama3"]
-                    fallback: []
-        discovery:
-            auto_discover: true
-            cache_duration: 3600
-            check_timeout: 10
-            max_retries: 2
-    log_level: info
-    mcp_server:
-        host: localhost
-        port: 8081
-        mcp_port: 39847
-        socket_path: /tmp/nixai-mcp.sock
-        auto_start: false
-        documentation_sources:
-            - https://wiki.nixos.org/wiki/NixOS_Wiki
-            - https://nix.dev/manual/nix
-            - https://nix.dev/ 
-            - https://nixos.org/manual/nixpkgs/stable/
-            - https://nix.dev/manual/nix/2.28/language/
-            - https://nix-community.github.io/home-manager/
-    nixos:
-        config_path: /etc/nixos/configuration.nix
-        log_path: /var/log/nixos.log
-    diagnostics:
-        enabled: true
-        threshold: 5
-        error_patterns:
-            - name: example_error
-              pattern: '(?i)example error regex'
-              error_type: custom
-              severity: high
-              description: Example error description
-    commands:
-        timeout: 30
-        retries: 3
+						prompt_cost_per_1m: 0.8
+						completion_cost_per_1m: 1.6
+						cached_prompt_cost_per_1m: 0.2
+		selection_preferences:
+			default_provider: "ollama"
+			default_models:
+				ollama: "llama3"
+				bedrock: "anthropic.claude-haiku-4-5"
+			task_models:
+				nixos_config:
+					primary: ["ollama:llama3"]
+					fallback: []
+		discovery:
+			auto_discover: true
+			cache_duration: 3600
+			check_timeout: 10
+			max_retries: 2
+	log_level: info
+	mcp_server:
+		host: localhost
+		port: 8081
+		mcp_port: 39847
+		socket_path: /tmp/nixai-mcp.sock
+		auto_start: false
+		documentation_sources:
+			- https://wiki.nixos.org/wiki/NixOS_Wiki
+			- https://nix.dev/manual/nix
+			- https://nix.dev/
+			- https://nixos.org/manual/nixpkgs/stable/
+			- https://nix.dev/manual/nix/2.28/language/
+			- https://nix-community.github.io/home-manager/
+	nixos:
+		config_path: /etc/nixos/configuration.nix
+		log_path: /var/log/nixos.log
+	diagnostics:
+		enabled: true
+		threshold: 5
+		error_patterns:
+			- name: example_error
+			  pattern: '(?i)example error regex'
+			  error_type: custom
+			  severity: high
+			  description: Example error description
+	commands:
+		timeout: 30
+		retries: 3
 	ai_timeouts:
 		ollama: 60
 		llamacpp: 120
@@ -119,81 +126,81 @@ const EmbeddedDefaultConfig = `default:
 		bedrock: 30
 		custom: 60
 		default: 60
-    devenv:
-        default_directory: "."
-        auto_init_git: true
-        templates:
-            python:
-                enabled: true
-    execution:
-        enabled: true
-        confirmation_required: true
-        dry_run_default: false
-        max_execution_time: 10m
-        default_working_dir: ""
-        allowed_commands:
-            - "nix*"
-            - "nixos-*"
-            - "systemctl"
-            - "journalctl"
-            - "ls"
-            - "cat"
-            - "grep"
-            - "find"
-            - "git"
-        forbidden_commands:
-            - "rm -rf /"
-            - "dd"
-            - "mkfs*"
-            - "fdisk"
-        sudo_commands:
-            - "nixos-rebuild"
-            - "systemctl"
-        allowed_directories:
-            - "/home"
-            - "/etc/nixos"
-            - "/tmp"
-            - "/var/log"
-        forbidden_paths:
-            - "/boot"
-            - "/sys"
-            - "/proc"
-        allowed_environment_variables:
-            - "PATH"
-            - "HOME"
-            - "NIX_PATH"
-        categories:
-            package:
-                commands: ["nix", "nix-env", "nix-shell", "nix-build"]
-                requires_confirmation: false
-                requires_sudo: false
-                max_execution_time: 5m
-            system:
-                commands: ["nixos-rebuild", "systemctl"]
-                requires_confirmation: true
-                requires_sudo: true
-                max_execution_time: 15m
-        security:
-            audit_logging: true
-            audit_log_path: "/var/log/nixai/commands.log"
-            session_timeout: 30m
-            password_timeout: 15m
-            max_concurrent_commands: 3
-    discourse:
-        base_url: "https://discourse.nixos.org"
-        api_key: ""  # Optional: set via DISCOURSE_API_KEY environment variable
-        username: ""  # Optional: set via DISCOURSE_USERNAME environment variable
-        enabled: true
-    cache:
-        enabled: true
-        memory_max_size: 1000        # Max entries in memory
-        memory_ttl: 30               # Memory cache TTL in minutes
-        disk_enabled: true           # Enable persistent disk cache
-        disk_path: ""                # Path for disk cache (will be set to user cache dir)
-        disk_max_size: 100           # Max disk cache size in MB
-        disk_ttl: 24                 # Disk cache TTL in hours
-        cleanup_interval: 5          # Cleanup interval in minutes
-        compact_interval: 60         # Compaction interval in minutes
+	devenv:
+		default_directory: "."
+		auto_init_git: true
+		templates:
+			python:
+				enabled: true
+	execution:
+		enabled: true
+		confirmation_required: true
+		dry_run_default: false
+		max_execution_time: 10m
+		default_working_dir: ""
+		allowed_commands:
+			- "nix*"
+			- "nixos-*"
+			- "systemctl"
+			- "journalctl"
+			- "ls"
+			- "cat"
+			- "grep"
+			- "find"
+			- "git"
+		forbidden_commands:
+			- "rm -rf /"
+			- "dd"
+			- "mkfs*"
+			- "fdisk"
+		sudo_commands:
+			- "nixos-rebuild"
+			- "systemctl"
+		allowed_directories:
+			- "/home"
+			- "/etc/nixos"
+			- "/tmp"
+			- "/var/log"
+		forbidden_paths:
+			- "/boot"
+			- "/sys"
+			- "/proc"
+		allowed_environment_variables:
+			- "PATH"
+			- "HOME"
+			- "NIX_PATH"
+		categories:
+			package:
+				commands: ["nix", "nix-env", "nix-shell", "nix-build"]
+				requires_confirmation: false
+				requires_sudo: false
+				max_execution_time: 5m
+			system:
+				commands: ["nixos-rebuild", "systemctl"]
+				requires_confirmation: true
+				requires_sudo: true
+				max_execution_time: 15m
+		security:
+			audit_logging: true
+			audit_log_path: "/var/log/nixai/commands.log"
+			session_timeout: 30m
+			password_timeout: 15m
+			max_concurrent_commands: 3
+	discourse:
+		base_url: "https://discourse.nixos.org"
+		api_key: ""
+		username: ""
+		enabled: true
+	cache:
+		enabled: true
+		memory_max_size: 1000        # Max entries in memory
+		memory_ttl: 30               # Memory cache TTL in minutes
+		disk_enabled: true           # Enable persistent disk cache
+		disk_path: ""                # Path for disk cache (will be set to user cache dir)
+		disk_max_size: 100           # Max disk cache size in MB
+		disk_ttl: 24                 # Disk cache TTL in hours
+		cleanup_interval: 5          # Cleanup interval in minutes
+		compact_interval: 60         # Compaction interval in minutes
 `
 
 type Config struct {
@@ -444,6 +451,9 @@ type AIModelConfig struct {
 	RecommendedFor   []string `yaml:"recommended_for" json:"recommended_for"`
 	RequiresDownload bool     `yaml:"requires_download,omitempty" json:"requires_download,omitempty"`
 	CostTier         string   `yaml:"cost_tier,omitempty" json:"cost_tier,omitempty"` // budget, standard, premium
+	PromptCostPer1M       float64 `yaml:"prompt_cost_per_1m,omitempty" json:"prompt_cost_per_1m,omitempty"`
+	CompletionCostPer1M   float64 `yaml:"completion_cost_per_1m,omitempty" json:"completion_cost_per_1m,omitempty"`
+	CachedPromptCostPer1M float64 `yaml:"cached_prompt_cost_per_1m,omitempty" json:"cached_prompt_cost_per_1m,omitempty"`
 	Default          bool     `yaml:"default,omitempty" json:"default,omitempty"`
 }
 
@@ -678,7 +688,7 @@ func DefaultUserConfig() *UserConfig {
 					RequiresAPIKey:    true,
 					EnvVar:            "AWS_BEDROCK_API_KEY",
 					Models: map[string]AIModelConfig{
-						"us.anthropic.claude-haiku-4-5-20251001-v1:0": {
+						"anthropic.claude-haiku-4-5": {
 							Name:           "Claude Haiku 4.5 (Bedrock)",
 							Description:    "Anthropic Claude Haiku 4.5 via AWS Bedrock",
 							Type:           "chat",
@@ -686,9 +696,12 @@ func DefaultUserConfig() *UserConfig {
 							MaxTokens:      8192,
 							RecommendedFor: []string{"fast", "general", "nixos"},
 							CostTier:       "standard",
+							PromptCostPer1M:       0.5,
+							CompletionCostPer1M:   1.0,
+							CachedPromptCostPer1M: 0.1,
 							Default:        true,
 						},
-						"openai.gpt-oss-120b-1:0": {
+						"openai.gpt-oss-120b": {
 							Name:           "GPT OSS 120B (Bedrock)",
 							Description:    "OpenAI GPT OSS 120B via AWS Bedrock",
 							Type:           "chat",
@@ -696,6 +709,9 @@ func DefaultUserConfig() *UserConfig {
 							MaxTokens:      8192,
 							RecommendedFor: []string{"analysis", "complex", "coding"},
 							CostTier:       "premium",
+							PromptCostPer1M:       0.8,
+							CompletionCostPer1M:   1.6,
+							CachedPromptCostPer1M: 0.2,
 						},
 					},
 				},
@@ -738,7 +754,7 @@ func DefaultUserConfig() *UserConfig {
 					"ollama":  "llama3",
 					"gemini":  "gemini-1.5-flash",
 					"openai":  "gpt-3.5-turbo",
-					"bedrock": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+					"bedrock": "anthropic.claude-haiku-4-5",
 					"copilot": "gpt-4",
 				},
 				TaskModels: map[string]TaskModelPreferences{

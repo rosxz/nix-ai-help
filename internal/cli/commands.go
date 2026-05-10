@@ -3214,11 +3214,24 @@ func handlePackageRepoCommand(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	// Initialize AI provider (using the legacy interface for packaging service)
-	legacyAIProvider, err := GetLegacyAIProvider(cfg, logger.NewLogger())
+	providerName := cfg.AIModels.SelectionPreferences.DefaultProvider
+	if providerName == "" {
+		providerName = cfg.AIProvider
+	}
+	if providerName == "" {
+		providerName = "ollama"
+	}
+
+	providerManager := ai.NewProviderManager(cfg, logger.NewLogger())
+	legacyAIProvider, err := providerManager.CreateLegacyProvider(providerName)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, utils.FormatError("Failed to initialize AI provider: "+err.Error()))
 		return
+	}
+
+	var bedrockClient *ai.BedrockClient
+	if client, ok := legacyAIProvider.(*ai.BedrockClient); ok {
+		bedrockClient = client
 	}
 
 	// Initialize MCP client
@@ -3254,6 +3267,15 @@ func handlePackageRepoCommand(cmd *cobra.Command, args []string) {
 	// Execute packaging
 	ctx := context.Background()
 	result, err := packagingService.PackageRepository(ctx, request)
+	if bedrockClient != nil {
+		totals := bedrockClient.GetCostTotals()
+		fmt.Println()
+		fmt.Println(utils.FormatHeader("Cost Summary (Bedrock)"))
+		fmt.Println(utils.FormatKeyValue("Prompt Tokens", fmt.Sprintf("%d", totals.PromptTokens)))
+		fmt.Println(utils.FormatKeyValue("Cached Tokens", fmt.Sprintf("%d", totals.CachedTokens)))
+		fmt.Println(utils.FormatKeyValue("Completion Tokens", fmt.Sprintf("%d", totals.CompletionTokens)))
+		fmt.Println(utils.FormatKeyValue("Total Cost", fmt.Sprintf("$%.6f", totals.TotalCostUSD)))
+	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, utils.FormatError("Failed to package repository: "+err.Error()))
 		return

@@ -798,8 +798,53 @@ func (pm *ProviderManager) initializeBedrockProvider(config *config.AIProviderCo
 		return nil, fmt.Errorf("no default model configured for bedrock")
 	}
 
-	bedrockClient := NewBedrockClient(apiKey, baseURL, defaultModel)
+	modelConfig, exists := config.Models[defaultModel]
+	if !exists {
+		if alias, ok := resolveBedrockModelAlias(config.Models, defaultModel); ok {
+			modelConfig = config.Models[alias]
+			exists = true
+		}
+	}
+	if !exists {
+		return nil, fmt.Errorf("bedrock model '%s' not found in configuration", defaultModel)
+	}
+
+	costConfig := BedrockCostConfig{
+		PromptPer1M:       modelConfig.PromptCostPer1M,
+		CompletionPer1M:   modelConfig.CompletionCostPer1M,
+		CachedPromptPer1M: modelConfig.CachedPromptCostPer1M,
+	}
+
+	bedrockClient := NewBedrockClient(apiKey, baseURL, defaultModel, costConfig, pm.logger)
 	return NewProviderWrapper(bedrockClient), nil
+}
+
+func resolveBedrockModelAlias(models map[string]config.AIModelConfig, modelName string) (string, bool) {
+	if _, ok := models[modelName]; ok {
+		return modelName, true
+	}
+
+	candidates := []string{
+		strings.TrimSuffix(modelName, ":0"),
+		strings.TrimSuffix(modelName, "-1:0"),
+		strings.TrimSuffix(modelName, "-1"),
+		strings.TrimPrefix(modelName, "us."),
+	}
+
+	if !strings.Contains(modelName, ":") {
+		candidates = append(candidates, modelName+":0", modelName+"-1:0", "us."+modelName)
+	}
+
+	for _, candidate := range candidates {
+		if candidate == "" {
+			continue
+		}
+		if _, ok := models[candidate]; ok {
+			return candidate, true
+		}
+	}
+
+	return "", false
 }
 
 // initializeGroqProvider creates a Groq provider instance.

@@ -37,6 +37,9 @@ default:
                         context_window: 8192
                         max_tokens: 4096
                         recommended_for: ["nixos", "general", "coding"]
+                        prompt_cost_per_1m: 0.5
+                        completion_cost_per_1m: 1.0
+                        cached_prompt_cost_per_1m: 0.1
                         requires_download: true
                         default: true
                     llama3:70b:
@@ -46,6 +49,9 @@ default:
                         type: "chat"
                         context_window: 8192
                         max_tokens: 4096
+                        prompt_cost_per_1m: 0.8
+                        completion_cost_per_1m: 1.6
+                        cached_prompt_cost_per_1m: 0.2
                         recommended_for: ["complex", "analysis", "detailed"]
                         requires_download: true
                     codellama:
@@ -182,6 +188,9 @@ default:
                         context_window: 200000
                         recommended_for: ["fast", "general", "nixos"]
                         cost_tier: "standard"
+                        prompt_cost_per_1m: 1.0
+                        completion_cost_per_1m: 5.0
+                        cached_prompt_cost_per_1m: 0.1
                     openai.gpt-oss-120b:
                         name: "GPT OSS 120B (Bedrock)"
                         description: "OpenAI GPT OSS 120B via AWS Bedrock"
@@ -189,6 +198,9 @@ default:
                         context_window: 131072
                         cost_tier: "premium"
                         default: true
+                        prompt_cost_per_1m: 0.15
+                        completion_cost_per_1m: 0.6
+                        cached_prompt_cost_per_1m: 0.2
             copilot:
                 name: "GitHub Copilot"
                 description: "GitHub Copilot's AI models with OpenAI compatibility"
