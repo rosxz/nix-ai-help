@@ -3274,7 +3274,7 @@ func handlePackageRepoCommand(cmd *cobra.Command, args []string) {
 		fmt.Println(utils.FormatKeyValue("Prompt Tokens", fmt.Sprintf("%d", totals.PromptTokens)))
 		fmt.Println(utils.FormatKeyValue("Cached Tokens", fmt.Sprintf("%d", totals.CachedTokens)))
 		fmt.Println(utils.FormatKeyValue("Completion Tokens", fmt.Sprintf("%d", totals.CompletionTokens)))
-		fmt.Println(utils.FormatKeyValue("Total Cost", fmt.Sprintf("$%.6f", totals.TotalCostUSD)))
+		fmt.Println(utils.FormatKeyValue("Total Cost", fmt.Sprintf("$%.8f", totals.TotalCostUSD)))
 	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, utils.FormatError("Failed to package repository: "+err.Error()))

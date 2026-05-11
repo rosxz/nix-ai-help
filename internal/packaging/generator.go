@@ -3,6 +3,7 @@ package packaging
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"nix-ai-help/internal/ai"
@@ -33,6 +34,11 @@ func (dg *DerivationGenerator) GenerateDerivation(ctx context.Context, analysis 
 
 	// Create a comprehensive prompt for AI
 	prompt := dg.createDerivationPrompt(analysis, nixpkgsContext)
+	if os.Getenv("NIXAI_PRINT_PACKAGING_PROMPT") != "" {
+		fmt.Println("== NIXAI PACKAGING PROMPT START ==")
+		fmt.Println(prompt)
+		fmt.Println("== NIXAI PACKAGING PROMPT END ==")
+	}
 
 	// Generate derivation using AI
 	response, err := dg.aiProvider.Query(prompt)

@@ -776,20 +776,21 @@ func (pm *ProviderManager) initializeClaudeProvider(config *config.AIProviderCon
 }
 
 // initializeBedrockProvider creates an AWS Bedrock provider instance.
-func (pm *ProviderManager) initializeBedrockProvider(config *config.AIProviderConfig) (Provider, error) {
-	apiKey := os.Getenv(config.EnvVar)
-	if apiKey == "" && config.RequiresAPIKey {
-		return nil, fmt.Errorf("bedrock API key not found in environment variable %s", config.EnvVar)
+
+func (pm *ProviderManager) initializeBedrockProvider(providerConfig *config.AIProviderConfig) (Provider, error) {
+	apiKey := os.Getenv(providerConfig.EnvVar)
+	if apiKey == "" && providerConfig.RequiresAPIKey {
+		return nil, fmt.Errorf("bedrock API key not found in environment variable %s", providerConfig.EnvVar)
 	}
 
-	baseURL := config.BaseURL
+	baseURL := providerConfig.BaseURL
 	if baseURL == "" {
 		baseURL = "https://bedrock-mantle.eu-north-1.api.aws/v1"
 	}
 
 	defaultModel := pm.config.AIModels.SelectionPreferences.DefaultModels["bedrock"]
 	if defaultModel == "" {
-		for modelName := range config.Models {
+		for modelName := range providerConfig.Models {
 			defaultModel = modelName
 			break
 		}
@@ -798,11 +799,13 @@ func (pm *ProviderManager) initializeBedrockProvider(config *config.AIProviderCo
 		return nil, fmt.Errorf("no default model configured for bedrock")
 	}
 
-	modelConfig, exists := config.Models[defaultModel]
+	modelConfig, exists := providerConfig.Models[defaultModel]
+	resolvedModelName := defaultModel
 	if !exists {
-		if alias, ok := resolveBedrockModelAlias(config.Models, defaultModel); ok {
-			modelConfig = config.Models[alias]
+		if alias, ok := resolveBedrockModelAlias(providerConfig.Models, defaultModel); ok {
+			modelConfig = providerConfig.Models[alias]
 			exists = true
+			resolvedModelName = alias
 		}
 	}
 	if !exists {
@@ -813,6 +816,33 @@ func (pm *ProviderManager) initializeBedrockProvider(config *config.AIProviderCo
 		PromptPer1M:       modelConfig.PromptCostPer1M,
 		CompletionPer1M:   modelConfig.CompletionCostPer1M,
 		CachedPromptPer1M: modelConfig.CachedPromptCostPer1M,
+	}
+	if costConfig.PromptPer1M == 0 || costConfig.CompletionPer1M == 0 || costConfig.CachedPromptPer1M == 0 {
+		defaults, err := config.LoadEmbeddedYAMLConfig()
+		if err == nil {
+			if defaultProvider, ok := defaults.AIModels.Providers["bedrock"]; ok {
+				modelName := resolvedModelName
+				if _, ok := defaultProvider.Models[modelName]; !ok {
+					if alias, ok := resolveBedrockModelAlias(defaultProvider.Models, modelName); ok {
+						modelName = alias
+					}
+				}
+				if defaultModelConfig, ok := defaultProvider.Models[modelName]; ok {
+					if costConfig.PromptPer1M == 0 {
+						costConfig.PromptPer1M = defaultModelConfig.PromptCostPer1M
+					}
+					if costConfig.CompletionPer1M == 0 {
+						costConfig.CompletionPer1M = defaultModelConfig.CompletionCostPer1M
+					}
+					if costConfig.CachedPromptPer1M == 0 {
+						costConfig.CachedPromptPer1M = defaultModelConfig.CachedPromptCostPer1M
+					}
+				}
+			}
+		}
+	}
+	if costConfig.CachedPromptPer1M == 0 {
+		costConfig.CachedPromptPer1M = costConfig.PromptPer1M
 	}
 
 	bedrockClient := NewBedrockClient(apiKey, baseURL, defaultModel, costConfig, pm.logger)
